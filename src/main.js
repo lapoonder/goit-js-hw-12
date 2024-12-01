@@ -20,7 +20,7 @@ let searchText = '', // Переменная хранения поисковог
 
 form.addEventListener('submit', checkInput);
 
-function checkInput(e) {
+async function checkInput(e) {
   e.preventDefault();
   searchText = searchInputField.value.trim(); // Поисковый запрос пользователя
   form.reset(); // Очистка поля ввода поискового запроса
@@ -31,45 +31,42 @@ function checkInput(e) {
     gallerySite.innerHTML = ''; // Удаление текущей галлереи изображений с сайта
     loadMoreBtn.style.display = 'none'; // Удалить кнопку 'Load more'
     loaderImages.style.display = 'block'; // Отоброзить прогресс загрузки результатов поиска
-    fetchImages(searchText, currentPage, imagePerPage)
-      .then(data => {
-        const { totalHits, hits } = data;
-        // Если поисковый запрос удачен, передать базу изображений в функцию создания галлереи. Иначе сообщить об отсутствии подходящий запросу изображений
-        if (hits.length > 0) {
-          totalPages = Math.ceil(totalHits / imagePerPage); // Определяю общее кол-во страниц с результатами поиска
-          return renderData(hits);
-        }
-        throw 'Sorry, there are no images matching your search query. Please try again!';
-      }) // Обработка введенного запроса
-      .then(gallery => {
+    try {
+      const { totalHits, hits } = await fetchImages(
+        searchText,
+        currentPage,
+        imagePerPage
+      );
+
+      if (hits.length > 0) {
+        totalPages = Math.ceil(totalHits / imagePerPage); // Определяю общее кол-во страниц с результатами поиска
+        const gallery = renderData(hits);
         loaderImages.style.display = 'none'; // Скрыть прогресс загрузки результатов поиска
         gallerySite.innerHTML = gallery; // Отобразить найденные изображения
         if (totalPages > 1) {
           loadMoreBtn.style.display = 'flex';
         }
         galleryShow.refresh(); // Обновление компонента просмотра увеличенных изображений simplelightbox
-      })
-      .catch(error => {
-        message(error); // Если ничего не найдено в базе изображений, отобразить сообщение об отсутствии результатов поиска по запросу
-        loaderImages.style.display = 'none'; // Скрыть прогресс загрузки результатов поиска
-      });
+      } else {
+        throw 'Sorry, there are no images matching your search query. Please try again!';
+      }
+    } catch (error) {
+      message(`${error}`); // Если ничего не найдено в базе изображений, отобразить сообщение об отсутствии результатов поиска по запросу
+      loaderImages.style.display = 'none'; // Скрыть прогресс загрузки результатов поиска
+    }
   }
 }
 
 loadMoreBtn.addEventListener('click', loadMoreImages);
 
-function loadMoreImages(e) {
+async function loadMoreImages(e) {
   currentPage += 1;
   loaderImages.style.display = 'block'; // Отоброзить прогресс загрузки результатов поиска
-  fetchImages(searchText, currentPage, imagePerPage)
-    .then(data => {
-      const { hits } = data;
-      if (hits.length > 0) {
-        return renderData(hits);
-      }
-      throw 'Sorry, there are no images matching your search query. Please try again!';
-    })
-    .then(gallery => {
+  try {
+    const { hits } = await fetchImages(searchText, currentPage, imagePerPage);
+
+    if (hits.length > 0) {
+      const gallery = renderData(hits);
       loaderImages.style.display = 'none'; // Скрыть прогресс загрузки результатов поиска
       gallerySite.insertAdjacentHTML('beforeend', gallery); // Добавляю изображения в конец существующих
       galleryShow.refresh(); // Обновление компонента просмотра увеличенных изображений simplelightbox
@@ -80,12 +77,14 @@ function loadMoreImages(e) {
         top: scrollDownLenght,
         behavior: 'smooth',
       });
-    })
-    .catch(error => {
-      message(error);
-      loadMoreBtn.style.display = 'none'; // Удалить кнопку 'Load more'
-      loaderImages.style.display = 'none'; // Скрыть прогресс загрузки результатов поиска
-    });
+    } else {
+      throw 'Sorry, there are no images matching your search query. Please try again!';
+    }
+  } catch (error) {
+    message(error);
+    loadMoreBtn.style.display = 'none'; // Удалить кнопку 'Load more'
+    loaderImages.style.display = 'none'; // Скрыть прогресс загрузки результатов поиска
+  }
 
   if (currentPage === totalPages) {
     loadMoreBtn.style.display = 'none'; // Удалить кнопку 'Load more'
